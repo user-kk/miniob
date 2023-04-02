@@ -1,3 +1,4 @@
+./build
 ./deps/libevent
 ./deps/googletest
 ./deps/jsoncpp
