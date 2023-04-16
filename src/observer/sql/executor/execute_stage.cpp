@@ -45,6 +45,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/condition_filter.h"
 #include "storage/trx/trx.h"
 #include "storage/clog/clog.h"
+#include "sql/operator/update_operator.h"
 
 using namespace common;
 
@@ -143,7 +144,7 @@ void ExecuteStage::handle_request(common::StageEvent *event)
         do_insert(sql_event);
       } break;
       case StmtType::UPDATE: {
-        // do_update((UpdateStmt *)stmt, session_event);
+        do_update(sql_event);
       } break;
       case StmtType::DELETE: {
         do_delete(sql_event);
@@ -559,6 +560,7 @@ RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
   RC rc = table->insert_record(trx, insert_stmt->value_amount(), insert_stmt->values());
   if (rc == RC::SUCCESS) {
     if (!session->is_trx_multi_operation_mode()) {
+      // 有事务时,生成日志,追加日志
       CLogRecord *clog_record = nullptr;
       rc = clog_manager->clog_gen_record(CLogType::REDO_MTR_COMMIT, trx->get_current_id(), clog_record);
       if (rc != RC::SUCCESS || clog_record == nullptr) {
@@ -580,7 +582,7 @@ RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
   } else {
     session_event->set_response("FAILURE\n");
   }
-  return rc;
+  return RC::SUCCESS;
 }
 
 RC ExecuteStage::do_delete(SQLStageEvent *sql_event)
@@ -715,6 +717,39 @@ RC ExecuteStage::do_drop_table(SQLStageEvent *sql_event)
     session_event->set_response("SUCCESS\n");
   } else {
     session_event->set_response("FAILURE\n");
+  }
+  return rc;
+}
+RC ExecuteStage::do_update(SQLStageEvent *sql_event)
+{
+  Stmt *stmt = sql_event->stmt();
+  SessionEvent *session_event = sql_event->session_event();
+  Session *session = session_event->session();
+  Db *db = session->get_current_db();
+  Trx *trx = session->current_trx();
+  CLogManager *clog_manager = db->get_clog_manager();
+
+  if (stmt == nullptr) {
+    LOG_WARN("cannot find statement");
+    return RC::GENERIC_ERROR;
+  }
+
+  UpdateStmt *update_stmt = (UpdateStmt *)stmt;
+  Table *table = update_stmt->table();
+
+  // 构建操作符的树 update->predicate->scan
+  TableScanOperator scan_oper(update_stmt->table());
+  PredicateOperator pred_oper(update_stmt->filter_stmt());
+  pred_oper.add_child(&scan_oper);
+  UpdateOperator update_oper(update_stmt, trx);
+  update_oper.add_child(&pred_oper);
+
+  RC rc = update_oper.open();
+  update_oper.close();
+  if (rc != RC::SUCCESS) {
+    session_event->set_response("FAILURE\n");
+  } else {
+    session_event->set_response("SUCCESS\n");
   }
   return rc;
 }
