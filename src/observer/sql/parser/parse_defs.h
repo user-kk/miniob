@@ -23,7 +23,7 @@ See the Mulan PSL v2 for more details. */
 #define MAX_ERROR_MESSAGE 20
 #define MAX_DATA 50
 
-//属性结构体
+// 属性结构体
 typedef struct {
   char *relation_name;   // relation name (may be NULL) 表名
   char *attribute_name;  // attribute name              属性名
@@ -39,16 +39,10 @@ typedef enum {
   NO_OP
 } CompOp;
 
-//属性值类型
-typedef enum
-{
-  UNDEFINED,
-  CHARS,
-  INTS,
-  FLOATS
-} AttrType;
+// 属性值类型
+typedef enum { UNDEFINED, CHARS, INTS, FLOATS } AttrType;
 
-//属性值
+// 属性值
 typedef struct _Value {
   AttrType type;  // type of value
   void *data;     // value
@@ -130,6 +124,10 @@ typedef struct {
 } DropIndex;
 
 typedef struct {
+  char *relation_name;  // 表名
+} ShowIndex;
+
+typedef struct {
   const char *relation_name;
 } DescTable;
 
@@ -147,6 +145,7 @@ union Queries {
   DropTable drop_table;
   CreateIndex create_index;
   DropIndex drop_index;
+  ShowIndex show_index;
   DescTable desc_table;
   LoadData load_data;
   char *errors;
@@ -163,6 +162,7 @@ enum SqlCommandFlag {
   SCF_DROP_TABLE,
   SCF_CREATE_INDEX,
   SCF_DROP_INDEX,
+  SCF_SHOW_INDEX,
   SCF_SYNC,
   SCF_SHOW_TABLES,
   SCF_DESC_TABLE,
@@ -229,6 +229,9 @@ void create_index_destroy(CreateIndex *create_index);
 
 void drop_index_init(DropIndex *drop_index, const char *index_name);
 void drop_index_destroy(DropIndex *drop_index);
+
+void show_index_init(ShowIndex *show_index, const char *relation_name);
+void show_index_destroy(ShowIndex *show_index);
 
 void desc_table_init(DescTable *desc_table, const char *relation_name);
 void desc_table_destroy(DescTable *desc_table);

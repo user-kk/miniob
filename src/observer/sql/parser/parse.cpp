@@ -9,13 +9,15 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 //
-// Created by Meiyi 
+// Created by Meiyi
 //
 
+#include <cstring>
 #include <mutex>
 #include "sql/parser/parse.h"
 #include "rc.h"
 #include "common/log/log.h"
+#include "sql/parser/parse_defs.h"
 
 RC parse(char *st, Query *sqln);
 
@@ -280,6 +282,16 @@ void drop_index_destroy(DropIndex *drop_index)
   drop_index->index_name = nullptr;
 }
 
+void show_index_init(ShowIndex *show_index, const char *relation_name)
+{
+  show_index->relation_name = strdup(relation_name);  // strdup会自动分配内存,只需要处理free
+}
+
+void show_index_destroy(ShowIndex *show_index)
+{
+  free(show_index->relation_name);
+  show_index->relation_name = nullptr;
+}
 void desc_table_init(DescTable *desc_table, const char *relation_name)
 {
   desc_table->relation_name = strdup(relation_name);
@@ -372,6 +384,11 @@ void query_reset(Query *query)
     case SCF_LOAD_DATA: {
       load_data_destroy(&query->sstr.load_data);
     } break;
+
+    case SCF_SHOW_INDEX: {
+      show_index_destroy(&query->sstr.show_index);
+      break;
+    }
     case SCF_CLOG_SYNC:
     case SCF_BEGIN:
     case SCF_COMMIT:

@@ -643,7 +643,7 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
 RC Table::update_record(Trx *trx, Record *record, const char *attribute_name, const Value *values)
 {
   RC rc = RC::SUCCESS;
-  char *old_data = record->data();  //!!!感觉有问题,需要深拷贝
+  // char *old_data = record->data();  //!!!感觉有问题,需要深拷贝
 
   char *now_data = record->data();
   const FieldMeta *field = table_meta_.field(attribute_name);
@@ -670,8 +670,8 @@ RC Table::update_record(Trx *trx, Record *record, const char *attribute_name, co
   memcpy(now_data + field->offset(), value.data, str_len);
 
   // 深拷贝old_data
-  // char *old_data = new char[field->offset() + str_len];
-  // memcpy(old_data, now_data, field->offset() + str_len);
+  char *old_data = new char[field->offset() + str_len];
+  memcpy(old_data, now_data, field->offset() + str_len);
 
   // 更新,其实就是把原来的数据拿出来修改再放回去
   record->set_data(now_data);
@@ -698,7 +698,7 @@ RC Table::update_record(Trx *trx, Record *record, const char *attribute_name, co
       }
     }
   }
-  // delete[] old_data;
+  delete[] old_data;
   return rc;
 }
 
@@ -1030,3 +1030,16 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
 {
   return RC::SUCCESS;
 }
+RC Table::show_index(std::ostream &os)
+{
+  std::string header{"Table | Non_unique | Key_name | Seq_in_index | Column_name"};
+  os << header << std::endl;
+  std::string table_name = this->name();
+  for (auto &index : indexes_) {
+    auto index_meta = index->index_meta();
+    std::string s =
+        table_name + " | 1 | " + std::string(index_meta.name()) + " | 1 | " + std::string(index_meta.field());
+    os << s << std::endl;
+  }
+  return RC::SUCCESS;
+};

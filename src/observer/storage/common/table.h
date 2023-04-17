@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #define __OBSERVER_STORAGE_COMMON_TABLE_H__
 
 #include "storage/common/table_meta.h"
+#include <ostream>
 
 struct RID;
 class Record;
@@ -70,6 +71,7 @@ public:
       void (*record_reader)(const char *data, void *context));
 
   RC create_index(Trx *trx, const char *index_name, const char *attribute_name);
+  RC show_index(std::ostream &os);
 
   RC get_record_scanner(RecordFileScanner &scanner);
 

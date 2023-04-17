@@ -32,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/predicate_operator.h"
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/update_stmt.h"
@@ -135,7 +136,7 @@ void ExecuteStage::handle_request(common::StageEvent *event)
   Session *session = session_event->session();
   Query *sql = sql_event->query();
 
-  if (stmt != nullptr) {
+  if (stmt != nullptr) {  // 这是关于表的增删改查操作
     switch (stmt->type()) {
       case StmtType::SELECT: {
         do_select(sql_event);
@@ -153,7 +154,7 @@ void ExecuteStage::handle_request(common::StageEvent *event)
         LOG_WARN("should not happen. please implenment");
       } break;
     }
-  } else {
+  } else {  // 这是其他的
     switch (sql->flag) {
       case SCF_HELP: {
         do_help(sql_event);
@@ -173,6 +174,10 @@ void ExecuteStage::handle_request(common::StageEvent *event)
 
       case SCF_DROP_TABLE: {
         do_drop_table(sql_event);
+        break;
+      }
+      case SCF_SHOW_INDEX: {
+        do_show_index(sql_event);
         break;
       }
       case SCF_DROP_INDEX:
@@ -753,3 +758,22 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
   }
   return rc;
 }
+RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
+{
+  SessionEvent *session_event = sql_event->session_event();
+  Db *db = session_event->session()->get_current_db();
+  const ShowIndex &showIndex = sql_event->query()->sstr.show_index;
+  Table *table = db->find_table(showIndex.relation_name);
+  if (nullptr == table) {
+    session_event->set_response("FAILURE\n");
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+  std::stringstream ss;
+  RC rc = table->show_index(ss);
+  if (rc != RC::SUCCESS) {
+    session_event->set_response("FAILURE\n");
+    return RC::IOERR;
+  }
+  sql_event->session_event()->set_response(ss.str());
+  return rc;
+};
