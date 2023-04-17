@@ -68,6 +68,10 @@ typedef struct {
   char *relations[MAX_NUM];       // relations in From clause
   size_t condition_num;           // Length of conditions in Where clause
   Condition conditions[MAX_NUM];  // conditions in Where clause
+
+  RelAttr order_attr[MAX_NUM];
+  int seq[MAX_NUM];  // 0为升序 1位降序
+  size_t order_num;
 } Selects;
 
 // struct of insert
@@ -201,6 +205,8 @@ void attr_info_destroy(AttrInfo *attr_info);
 
 void selects_init(Selects *selects, ...);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr);
+void selects_append_order_attr(Selects *selects, RelAttr *rel_attr);
+void selects_append_seq(Selects *selects);
 void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);
 void selects_destroy(Selects *selects);
