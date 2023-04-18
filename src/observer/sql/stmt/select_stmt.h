@@ -40,6 +40,7 @@ public:
   static RC create(Db *db, const Selects &select_sql, Stmt *&stmt);
 
 public:
+  enum Seq { ASC, DESC };
   const std::vector<Table *> &tables() const
   {
     return tables_;
@@ -52,13 +53,14 @@ public:
   {
     return filter_stmt_;
   }
-
-public:
-  enum Seq { ASC, DESC };
+  const std::vector<std::pair<Field, Seq>> &order_fields_pair() const
+  {
+    return order_fields_pair_;
+  }
 
 private:
   std::vector<Field> query_fields_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
-  std::vector<std::pair<Field, Seq>> order_fields_;
+  std::vector<std::pair<Field, Seq>> order_fields_pair_;
 };

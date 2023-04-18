@@ -27,6 +27,7 @@ See the Mulan PSL v2 for more details. */
 #include "event/sql_event.h"
 #include "event/session_event.h"
 #include "sql/expr/tuple.h"
+#include "sql/operator/order_operator.h"
 #include "sql/operator/table_scan_operator.h"
 #include "sql/operator/index_scan_operator.h"
 #include "sql/operator/predicate_operator.h"
@@ -428,25 +429,43 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 
   DEFER([&]() { delete scan_oper; });
 
+  // 操作符顺序 project->order->project->predicate->scan
   PredicateOperator pred_oper(select_stmt->filter_stmt());
   pred_oper.add_child(scan_oper);
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
+  OrderOperator order_operator;
+  order_operator.add_child(&project_oper);
+  ProjectOperator head_oper;
+  head_oper.add_child(&order_operator);
+
+  // 添加两个要投影的,一个是原本要投影的,一个是排序要投影的
+  //  因为可能会select a1 from t order by a2;
+  // 必须要获得a2才能排序
+  const auto &order_fields_pair = select_stmt->order_fields_pair();
+  for (const auto &field_pair : order_fields_pair) {
+    project_oper.add_projection(field_pair.first.table(), field_pair.first.meta());
+    order_operator.add_seq(field_pair.second);
+  }
   for (const Field &field : select_stmt->query_fields()) {
     project_oper.add_projection(field.table(), field.meta());
   }
-  rc = project_oper.open();
+  for (const Field &field : select_stmt->query_fields()) {
+    head_oper.add_projection(field.table(), field.meta());
+  }
+
+  rc = head_oper.open();
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to open operator");
     return rc;
   }
 
   std::stringstream ss;
-  print_tuple_header(ss, project_oper);
-  while ((rc = project_oper.next()) == RC::SUCCESS) {
+  print_tuple_header(ss, head_oper);
+  while ((rc = head_oper.next()) == RC::SUCCESS) {
     // get current record
     // write to response
-    Tuple *tuple = project_oper.current_tuple();
+    Tuple *tuple = head_oper.current_tuple();
     if (nullptr == tuple) {
       rc = RC::INTERNAL;
       LOG_WARN("failed to get current record. rc=%s", strrc(rc));
@@ -459,9 +478,9 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 
   if (rc != RC::RECORD_EOF) {
     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
-    project_oper.close();
+    head_oper.close();
   } else {
-    rc = project_oper.close();
+    rc = head_oper.close();
   }
   session_event->set_response(ss.str());
   return rc;
