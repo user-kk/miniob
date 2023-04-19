@@ -16,7 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include <common/lang/string.h>
 
 #include "storage/common/table_meta.h"
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 #include "common/log/log.h"
 #include "storage/trx/trx.h"
 
